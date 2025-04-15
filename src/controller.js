@@ -1,34 +1,28 @@
 import * as THREE from 'three';
-import {scene, camera, outlinePass} from './app.js';
+import {scene, outlinePass} from './app.js';
+import {screenToWorld} from './utils.js';
 import Board from './board.js';
-
-const raycaster = new THREE.Raycaster(undefined, undefined, 0, 40);
-let mouseDown = new THREE.Vector2();
-let isClick = false;
+import PromotionMenu from './PromotionMenu.js';
 
 let board;
-let selectedPiece = null;
+let promotionMenu;
 let highlightTiles = [];
 let currentTurn = 'white';
+
+let selectedPiece = null;
 let stopInteraction = false;
 
-export function initController() {
+export async function initController() {
     board = new Board();
-    window.addEventListener('pointerdown', (event) => {
-        if (event.button !== 0) return;
-        mouseDown.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouseDown.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        isClick = true;
-    });
+    promotionMenu = new PromotionMenu();
 
-    window.addEventListener('pointermove', (event) => {
-        const mouseMove = new THREE.Vector2(
-            (event.clientX / window.innerWidth) * 2 - 1,
-            (event.clientY / window.innerHeight) * 2 + 1);
+    window.addEventListener('pointerdown', onPointerDown);
 
-        if (mouseDown.distanceTo(mouseMove) > 2) isClick = false;
+    window.addEventListener('keydown', async event => {
+        if (event.code === 'KeyP') await promotionMenu.show(board, selectedPiece);
+        if (event.code === 'KeyD') await board.removePiece(selectedPiece);
+        if (event.code === 'KeyT') currentTurn = currentTurn === 'white' ? 'black' : 'white';
     });
-    window.addEventListener('pointerup', onPointerUp);
 
     // Create highlight tiles
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -45,27 +39,28 @@ export function initController() {
                 highlightMaterial,
             );
 
-            tile.rotation.x = -Math.PI/2;
+            tile.rotation.x = -Math.PI / 2;
             tile.position.set(-3.5 + file, 0.005, -3.5 + rank);
             tile.visible = false;
             scene.add(tile);
             highlightTiles.push(tile);
         }
     }
+
+    await board.spawnPieces();
 }
 
-async function onPointerUp() {
-    if (!isClick) return;
+async function onPointerDown(event) {
+    if (event.button !== 0 || stopInteraction) return;
 
-    raycaster.setFromCamera(mouseDown, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
+    const objects = [board, ...board.pieces];
+    const intersects = screenToWorld(event.clientX, event.clientY, objects);
     if (intersects.length === 0) {
         deselect();
         return;
     }
 
     const {file, rank} = worldToTile(intersects[0].point);
-
     if (!board.inBounds(file, rank)) {
         deselect();
         return;
@@ -93,33 +88,46 @@ async function onPointerUp() {
 
         const promises = [];
         promises.push(board.movePiece(selectedPiece, move.file, move.rank));
-        if (move.capture) promises.push(board.removePiece(move.capture));
+        if (move.capture) promises.push(board.capturePiece(move.capture));
 
+        const selectPiece = selectedPiece;
         deselect();
         currentTurn = currentTurn === 'white' ? 'black' : 'white';
 
         await Promise.all(promises);
 
-        const king = board.pieces.find(p => p.type === 'king' && p.color === currentTurn);
-        if (board.isCheckmated(king)) {
-            await board.removePiece(king);
-            reset();
+        // Check for promotion
+        if (selectPiece.type === 'pawn' &&
+            (selectPiece.rank === 0 && selectPiece.color === 'black' ||
+                selectPiece.rank === 7) && selectPiece.color === 'white')
+        {
+            await promotionMenu.show(board, selectPiece);
         }
 
+
+        // Check for checkmate
+        const king = board.pieces.find(p => p.type === 'king' && p.color === currentTurn);
+        if (board.isCheckmated(king)) {
+            await board.capturePiece(king);
+            await reset();
+        }
+
+        // Check for stalemate
         if (board.isStalemated(king)) {
             const otherKing = board.pieces.find(p => p.type === 'king' && p.color !== currentTurn);
             await Promise.all([
-                board.removePiece(king),
-                board.removePiece(otherKing),
+                board.capturePiece(king),
+                board.capturePiece(otherKing),
             ]);
-            reset();
+            await reset();
         }
+
         stopInteraction = false;
     }
 }
 
-function reset() {
-    board.reset();
+async function reset() {
+    await board.reset();
     currentTurn = 'white';
 }
 
@@ -130,9 +138,9 @@ function select(piece) {
 }
 
 function deselect() {
+    outlinePass.selectedObjects = outlinePass.selectedObjects.filter(object => object !== selectedPiece);
     selectedPiece = null;
     clearHighlights();
-    outlinePass.selectedObjects = [];
 }
 
 function showHighlights(moves) {

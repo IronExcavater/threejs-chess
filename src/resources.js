@@ -1,22 +1,30 @@
-import {GLTFLoader, EXRLoader} from 'three/addons';
+import {GLTFLoader, EXRLoader, FontLoader} from 'three/addons';
 import * as THREE from "three";
 
 const gltfLoader = new GLTFLoader();
 const exrLoader = new EXRLoader();
+const fontLoader = new FontLoader();
 
 const models = {}; // key: name, value: { scene, animationClips }
+const materials = {}; // key: name, value: material
 const environments = {}; // key: name, value: texture
+const fonts = {}; // key: name, value: font
 
 function loadModel(name, path) {
     return new Promise((resolve, reject) => {
         gltfLoader.load(path,
-            (gltf) => {
+            gltf => {
                 const model = gltf.scene || gltf.scenes[0];
 
                 model.traverse(child => {
                     if (!child.isMesh) return;
                     child.castShadow = true;
                     child.receiveShadow = true;
+
+                    const modelMats = Array.isArray(child.material) ? child.material : [child.material];
+                    modelMats.forEach(mat => {
+                        if (mat) materials[mat.name] = mat;
+                    })
                 });
 
                 models[name] = {
@@ -34,7 +42,7 @@ function loadModel(name, path) {
 function loadEnvironment(name, path) {
     return new Promise((resolve, reject) => {
         exrLoader.load(path,
-            (texture) => {
+            texture => {
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 environments[name] = texture;
                 resolve(texture);
@@ -43,6 +51,15 @@ function loadEnvironment(name, path) {
             reject
         );
     });
+}
+
+function loadFont(name, path) {
+    return new Promise((resolve) => {
+        fontLoader.load(path, font => {
+            fonts[name] = font;
+            resolve(font);
+        });
+    })
 }
 
 export function getModel(name) {
@@ -57,6 +74,14 @@ export function getModel(name) {
 
 export function getEnvironment(name) {
     return environments[name];
+}
+
+export function getFont(name) {
+    return fonts[name];
+}
+
+export function getMaterial(name) {
+    return materials[name];
 }
 
 export const preloadResources = (async () => {
@@ -75,5 +100,6 @@ export const preloadResources = (async () => {
         loadModel('pawnWhite', 'assets/models/pawn-white.glb'),
         loadModel('pawnBlack', 'assets/models/pawn-black.glb'),
         loadEnvironment('sky', 'assets/textures/qwantani-4k.exr'),
+        loadFont('inter', 'assets/fonts/inter-regular.typeface.json'),
     ]);
 });

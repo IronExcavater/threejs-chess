@@ -10,12 +10,17 @@ export default class Piece extends THREE.Object3D {
         this.color = color; // 'white' or 'black'
         this.setPosition(file, rank);
 
-        this.object = getModel(`${this.type}${capitalize(color)}`).scene;
-        this.object.scale.set(17, 17, 17);
+        this.initModel();
+
         if (color === 'black') this.rotation.y = Math.PI;
-        this.add(this.object);
-        scene.add(this);
         this.setWorldPosition();
+        scene.add(this);
+    }
+
+    initModel() {
+        this.object = getModel(`${this.type}${capitalize(this.color)}`).scene;
+        this.object.scale.set(17, 17, 17);
+        this.add(this.object);
     }
 
     getPosition() {

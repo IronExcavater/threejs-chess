@@ -18,6 +18,7 @@ export const camera = new THREE.PerspectiveCamera(
 export const audioListener = new THREE.AudioListener();
 camera.add(audioListener);
 
+const updatables = [];
 const clock = new THREE.Clock();
 export const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -28,6 +29,7 @@ renderer.toneMappingExposure = 1.2;
 document.body.appendChild(renderer.domElement);
 renderer.setAnimationLoop(() => update(clock.getDelta()));
 
+export const raycaster = new THREE.Raycaster(undefined, undefined, 0, 40);
 
 // Shader components
 export const composer = new EffectComposer(renderer);
@@ -85,8 +87,6 @@ directionLight.shadow.camera.bottom = -10;
 
 scene.add(directionLight);
 
-initController();
-
 
 // Helpers
 /*const origin = new THREE.Vector3(0, 1, 0);
@@ -108,8 +108,35 @@ function windowResize() {
     outlinePass.resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
 }
 
+export const mouseScreen = new THREE.Vector2();
+window.addEventListener('pointermove', event => {
+    mouseScreen.x = event.clientX;
+    mouseScreen.y = event.clientY;
+});
+
 function update(delta) {
     updateTweens(delta);
     controls.update(delta);
+
+    for (const obj of updatables) obj.update(delta);
     composer.render();
 }
+
+export function addUpdatable(obj) {
+    if (typeof obj?.update === 'function') {
+        updatables.push(obj);
+    } else {
+        console.warn('GameObject invalid for updatables; no update method:', obj);
+    }
+}
+
+export function removeUpdatable(obj) {
+    const index = updatables.indexOf(obj);
+    if (index > -1) {
+        updatables.splice(index, 1);
+    } else {
+        console.warn('GameObject not found in updatables:', obj);
+    }
+}
+
+await initController();

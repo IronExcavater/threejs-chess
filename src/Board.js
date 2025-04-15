@@ -16,28 +16,31 @@ export default class Board extends THREE.Object3D {
         this.object.scale.set(16.8, 16.8, 16.8);
         this.add(this.object);
         scene.add(this);
-
-        this.spawnPieces();
     }
 
     reset() {
-        this.pieces.forEach(p => scene.remove(p));
-        this.pieces = [];
-        this.spawnPieces();
+        const removeTweens = this.pieces.map(p => this.removePiece(p));
+        return Promise.all(removeTweens).then(() => {
+            this.pieces = [];
+            return this.spawnPieces();
+        });
     }
 
     spawnPieces() {
         const pieceOrder = ['rook', 'knight', 'bishop', 'king', 'queen', 'bishop', 'knight', 'rook'];
+        const spawnTweens = [];
 
         for (let file = 0; file < 8; file++) {
             // Pawn ranks
-            this.addPiece('pawn', 'white', file, 1);
-            this.addPiece('pawn', 'black', file, 6);
+            spawnTweens.push(this.addPiece('pawn', 'white', file, 1));
+            spawnTweens.push(this.addPiece('pawn', 'black', file, 6));
 
             // Back ranks
-            this.addPiece(pieceOrder[file], 'white', file, 0);
-            this.addPiece(pieceOrder[file], 'black', file, 7);
+            spawnTweens.push(this.addPiece(pieceOrder[file], 'white', file, 0));
+            spawnTweens.push(this.addPiece(pieceOrder[file], 'black', file, 7));
         }
+
+        return Promise.all(spawnTweens);
     }
 
     getPieceAt(file, rank) {
@@ -192,16 +195,45 @@ export default class Board extends THREE.Object3D {
     }
 
     addPiece(type, color, file, rank) {
-        const piece = new Piece(type, color, file, rank);
-        this.pieces.push(piece);
+        return new Promise(resolve => {
+            const piece = new Piece(type, color, file, rank);
+            this.pieces.push(piece);
+
+            new Tween({
+                setter: scale => piece.object.scale.copy(scale),
+                startValue: new THREE.Vector3(),
+                endValue: new THREE.Vector3(17, 17, 17),
+                duration: 0.5,
+                easing: Easing.EaseOutCubic,
+                onComplete: resolve,
+            });
+        });
     }
 
     removePiece(piece) {
         return new Promise(resolve => {
             this.pieces = this.pieces.filter(p => p !== piece);
 
+            new Tween({
+                setter: scale => piece.object.scale.copy(scale),
+                startValue: piece.object.scale.clone(),
+                endValue: new THREE.Vector3(),
+                duration: 0.5,
+                easing: Easing.EaseInCubic,
+                onComplete: () => {
+                    scene.remove(piece);
+                    resolve();
+                },
+            });
+        });
+    }
+
+    capturePiece(piece) {
+        return new Promise(resolve => {
+            this.pieces = this.pieces.filter(p => p !== piece);
+
             const start = piece.quaternion.clone();
-            const tiltAxis = new THREE.Vector3(1, 0, 0.5);
+            const tiltAxis = new THREE.Vector3(1, 0, Math.random() - 0.5);
             const end = start.clone().multiply(
                 new THREE.Quaternion().setFromAxisAngle(tiltAxis, -Math.PI / 2)
             );
@@ -274,6 +306,37 @@ export default class Board extends THREE.Object3D {
                 duration: 1,
                 easing: Easing.EaseInOutCubic,
                 onComplete: resolve,
+            });
+        });
+    }
+
+    promotePiece(piece, newType) {
+        return new Promise(resolve => {
+            const prevObject = piece.object.clone();
+            piece.add(prevObject);
+            piece.remove(piece.object);
+
+            piece.type = newType;
+            piece.initModel();
+
+            new Tween({
+                setter: scale => prevObject.scale.copy(scale),
+                startValue: piece.object.scale.clone(),
+                endValue: new THREE.Vector3(),
+                duration: 0.5,
+                easing: Easing.EaseInCubic,
+            });
+
+            new Tween({
+                setter: scale => piece.object.scale.copy(scale),
+                startValue: new THREE.Vector3(),
+                endValue: new THREE.Vector3(17, 17, 17),
+                duration: 0.5,
+                easing: Easing.EaseOutCubic,
+                onComplete: () => {
+                    piece.remove(prevObject);
+                    resolve();
+                },
             });
         });
     }
