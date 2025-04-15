@@ -1,8 +1,5 @@
 import * as THREE from 'three';
-import {
-    EffectComposer, HorizontalBlurShader, MapControls, OutlinePass, RenderPass, ShaderPass, UnrealBloomPass,
-    VerticalBlurShader
-} from 'three/addons';
+import {EffectComposer, MapControls, OutlinePass, RenderPass, UnrealBloomPass} from 'three/addons';
 import {getEnvironment, preloadResources} from './resources.js';
 import {initController} from './controller.js';
 import {updateTweens} from './tween.js';
