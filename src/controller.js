@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import {scene, camera, outlinePass} from './app.js';
 import Board from './board.js';
-import Piece from './Piece.js';
-import {capitalize} from "./utils.js";
 
 const raycaster = new THREE.Raycaster(undefined, undefined, 0, 40);
-let mouse = new THREE.Vector2();
+let mouseDown = new THREE.Vector2();
+let mouseDownTime = 0;
 
 let board;
 let selectedPiece = null;
@@ -15,7 +14,12 @@ let stopInteraction = false;
 
 export function initController() {
     board = new Board();
-    window.addEventListener('pointerdown', onClick);
+    window.addEventListener('pointerdown', (event) => {
+        mouseDown.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouseDown.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        mouseDownTime = Date.now();
+    })
+    window.addEventListener('pointerup', onPointerUp);
 
     // Create highlight tiles
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -41,13 +45,17 @@ export function initController() {
     }
 }
 
-async function onClick(event) {
+async function onPointerUp(event) {
     if (event.button !== 0) return;
 
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    const mouseUp = new THREE.Vector2(
+        (event.clientX / window.innerWidth) * 2 - 1,
+        (event.clientY / window.innerHeight) * 2 + 1);
 
-    raycaster.setFromCamera(mouse, camera);
+    const distance = mouseDown.distanceTo(mouseUp);
+    if (distance > 10 || Date.now() - mouseDownTime > 1) return;
+
+    raycaster.setFromCamera(mouseDown, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
     if (intersects.length === 0) {
         deselect();

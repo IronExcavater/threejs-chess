@@ -1,7 +1,9 @@
 import * as THREE from 'three';
-import {EffectComposer, HorizontalBlurShader, MapControls, OutlinePass, RenderPass, ShaderPass,
-    VerticalBlurShader} from 'three/addons';
-import {preloadResources} from './resources.js';
+import {
+    EffectComposer, HorizontalBlurShader, MapControls, OutlinePass, RenderPass, ShaderPass, UnrealBloomPass,
+    VerticalBlurShader
+} from 'three/addons';
+import {getEnvironment, preloadResources} from './resources.js';
 import {initController} from './controller.js';
 import {updateTweens} from './tween.js';
 
@@ -24,6 +26,8 @@ export const renderer = new THREE.WebGLRenderer({
     antialias: true,
 });
 renderer.shadowMap.enabled = true;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
 document.body.appendChild(renderer.domElement);
 renderer.setAnimationLoop(() => update(clock.getDelta()));
 
@@ -42,16 +46,15 @@ outlinePass.edgeThickness = 1;
 outlinePass.visibleEdgeColor.set(0xffff00);
 composer.addPass(outlinePass);
 
-const hBlur = new ShaderPass(HorizontalBlurShader);
-const vBlur = new ShaderPass(VerticalBlurShader);
-
-hBlur.uniforms.h.value = 0.5 / window.innerWidth;
-vBlur.uniforms.v.value = 0.5 / window.innerHeight;
-
-composer.addPass(hBlur);
-composer.addPass(vBlur);
+export const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.6, 0.4, 0.85
+);
+composer.addPass(bloomPass);
 
 // Scene components
+scene.background = getEnvironment('sky');
+
 camera.position.set(5, 10, -5);
 
 const controls = new MapControls( camera, renderer.domElement );
@@ -68,8 +71,8 @@ controls.maxPolarAngle = Math.PI / 3;
 export const ambientLight = new THREE.AmbientLight(0xffffff, 2);
 scene.add(ambientLight);
 
-export const directionLight = new THREE.DirectionalLight(0xffffff, 10);
-directionLight.position.set(5, 10, 5);
+export const directionLight = new THREE.DirectionalLight(0xffffff, 5);
+directionLight.position.set(7, 6, 5);
 directionLight.castShadow = true;
 directionLight.shadow.bias = -0.001;
 directionLight.shadow.mapSize.width = 4096;

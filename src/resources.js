@@ -1,12 +1,15 @@
-import {GLTFLoader} from 'three/addons';
+import {GLTFLoader, EXRLoader} from 'three/addons';
+import * as THREE from "three";
 
-const modelLoader = new GLTFLoader();
+const gltfLoader = new GLTFLoader();
+const exrLoader = new EXRLoader();
 
 const models = {}; // key: name, value: { scene, animationClips }
+const environments = {}; // key: name, value: texture
 
 function loadModel(name, path) {
     return new Promise((resolve, reject) => {
-        modelLoader.load(path,
+        gltfLoader.load(path,
             (gltf) => {
                 const model = gltf.scene || gltf.scenes[0];
 
@@ -25,7 +28,21 @@ function loadModel(name, path) {
             undefined,
             reject
         );
-    })
+    });
+}
+
+function loadEnvironment(name, path) {
+    return new Promise((resolve, reject) => {
+        exrLoader.load(path,
+            (texture) => {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                environments[name] = texture;
+                resolve(texture);
+            },
+            undefined,
+            reject
+        );
+    });
 }
 
 export function getModel(name) {
@@ -36,6 +53,10 @@ export function getModel(name) {
         scene: sceneClone,
         clips: clips,
     };
+}
+
+export function getEnvironment(name) {
+    return environments[name];
 }
 
 export const preloadResources = (async () => {
@@ -53,5 +74,6 @@ export const preloadResources = (async () => {
         loadModel('rookBlack', 'assets/models/rook-black.glb'),
         loadModel('pawnWhite', 'assets/models/pawn-white.glb'),
         loadModel('pawnBlack', 'assets/models/pawn-black.glb'),
+        loadEnvironment('sky', 'assets/textures/qwantani-4k.exr'),
     ]);
 });
