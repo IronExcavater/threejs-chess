@@ -118,6 +118,19 @@ function update(delta) {
     updateTweens(delta);
     controls.update(delta);
 
+    const boundRadius = 10;
+    const xzTarget = new THREE.Vector2(controls.target.x, controls.target.z);
+
+    if (xzTarget.length() > boundRadius) {
+        const offset = camera.position.clone().sub(controls.target);
+
+        xzTarget.setLength(boundRadius);
+        controls.target.x = xzTarget.x;
+        controls.target.z = xzTarget.y;
+
+        camera.position.copy(controls.target).add(offset);
+    }
+
     for (const obj of updatables) obj.update(delta);
     composer.render();
 }
