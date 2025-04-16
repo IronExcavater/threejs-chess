@@ -22,6 +22,7 @@ export async function initController() {
         if (event.code === 'KeyP') await promotionMenu.show(board, selectedPiece);
         if (event.code === 'KeyD') await board.removePiece(selectedPiece);
         if (event.code === 'KeyT') currentTurn = currentTurn === 'white' ? 'black' : 'white';
+        if (event.code === 'KeyR') await reset();
     });
 
     // Create highlight tiles
