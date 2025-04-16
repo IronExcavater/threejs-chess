@@ -20,9 +20,18 @@ export async function initController() {
 
     window.addEventListener('keydown', async event => {
         if (event.code === 'KeyP') await promotionMenu.show(board, selectedPiece);
-        if (event.code === 'KeyD') await board.removePiece(selectedPiece);
-        if (event.code === 'KeyT') currentTurn = currentTurn === 'white' ? 'black' : 'white';
-        if (event.code === 'KeyR') await reset();
+        if (event.code === 'KeyD') {
+            deselect();
+            await board.removePiece(selectedPiece);
+        }
+        if (event.code === 'KeyT') {
+            currentTurn = currentTurn === 'white' ? 'black' : 'white'
+            deselect();
+        }
+        if (event.code === 'KeyR') {
+            deselect();
+            await reset();
+        }
     });
 
     // Create highlight tiles
